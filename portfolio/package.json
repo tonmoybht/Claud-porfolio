@@ -9,8 +9,7 @@
     "dev:client": "cd client && npm run dev",
     "build": "cd client && npm run build",
     "build:full": "npm run install:all && npm run build",
-    "start": "NODE_ENV=production node server/server.js",
-    "postinstall": "npm run build"
+    "start": "NODE_ENV=production node server/server.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
