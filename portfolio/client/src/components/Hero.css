@@ -1,0 +1,211 @@
+.hero {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  padding: 8rem 4rem 4rem;
+  position: relative;
+  overflow: hidden;
+  gap: 3rem;
+}
+
+.hero-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero-glow--teal {
+  top: -200px; right: -200px;
+  width: 700px; height: 700px;
+  background: radial-gradient(circle, rgba(0,229,192,0.07) 0%, transparent 70%);
+}
+
+.hero-glow--red {
+  bottom: -100px; left: -100px;
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(255,107,107,0.05) 0%, transparent 70%);
+}
+
+.hero-content { position: relative; z-index: 1; }
+
+.hero-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+}
+
+.hero-tag-line {
+  display: inline-block;
+  width: 24px; height: 1px;
+  background: var(--accent);
+}
+
+.hero-name {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 6vw, 5.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.75rem;
+}
+
+.hero-name-accent { color: var(--accent); }
+
+.hero-subtitle {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 1.35rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+  min-height: 2rem;
+}
+
+.hero-desc {
+  color: var(--muted);
+  font-size: 0.82rem;
+  max-width: 400px;
+  margin-bottom: 2.5rem;
+  line-height: 1.8;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
+}
+
+.hero-stack-label {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.hero-stack-badges {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stack-badge {
+  padding: 0.2rem 0.6rem;
+  background: rgba(0,229,192,0.05);
+  border: 1px solid rgba(0,229,192,0.12);
+  border-radius: 3px;
+  font-size: 0.65rem;
+  color: var(--text);
+}
+
+/* Avatar */
+.hero-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.avatar-wrap {
+  position: relative;
+  width: 300px; height: 300px;
+}
+
+.avatar-ring {
+  position: absolute;
+  border-radius: 50%;
+}
+
+.ring-1 {
+  inset: -16px;
+  border: 1px solid var(--accent);
+  opacity: 0.25;
+  animation: spin 12s linear infinite;
+}
+
+.ring-2 {
+  inset: -32px;
+  border: 1px dashed rgba(0,229,192,0.12);
+  animation: spin 20s linear infinite reverse;
+}
+
+.avatar-initials {
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--surface2), var(--surface));
+  border: 3px solid rgba(0,229,192,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 5rem;
+  font-weight: 800;
+  color: var(--accent);
+  position: relative;
+  overflow: hidden;
+}
+
+.avatar-initials::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(0,229,192,0.08), transparent 60%);
+}
+
+.status-badge {
+  position: absolute;
+  bottom: 8px; right: -16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  background: #22c55e;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 7rem 1.5rem 3rem;
+    text-align: center;
+  }
+  .hero-visual { order: -1; }
+  .avatar-wrap, .avatar-initials { width: 200px; height: 200px; }
+  .avatar-initials { font-size: 3.5rem; }
+  .ring-1 { inset: -12px; }
+  .ring-2 { inset: -24px; }
+  .hero-ctas { justify-content: center; }
+  .hero-desc { margin-inline: auto; }
+  .hero-stack-label { justify-content: center; flex-wrap: wrap; }
+  .status-badge { right: 0; }
+}
