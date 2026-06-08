@@ -1,87 +1,96 @@
-import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+/**
+ * SSE real-time stream — Hobby-plan friendly.
+ * Fetches live scores directly from football-data.org every 30s.
+ * No cron job needed.
+ */
+import { NextResponse } from "next/server";
+import { fetchLiveMatches } from "@/lib/football";
+import { getLiveMatches, setLiveMatches, type LiveMatch } from "@/lib/storage";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
-const SYSTEM = `You are an elite football (soccer) analyst specializing in the 2026 FIFA World Cup.
+export async function GET() {
+  const encoder = new TextEncoder();
 
-Tournament facts:
-- Dates: June 11 – July 19, 2026
-- Hosts: USA, Canada, Mexico
-- Format: 48 teams, 12 groups (A–L), 4 teams each
-- New: Round of 32 (first time in WC history)
-- Matches: 104 total
-- Final: MetLife Stadium, East Rutherford, New Jersey, July 19
+  const stream = new ReadableStream({
+    async start(controller) {
+      function send(event: string, data: unknown) {
+        try {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+          );
+        } catch {}
+      }
 
-Groups:
-A: Mexico, South Africa, South Korea, Czechia
-B: Canada, Bosnia & Herz., Qatar, Switzerland
-C: Brazil, Morocco, Haiti, Scotland
-D: USA, Paraguay, Australia, Turkey
-E: Germany, Curaçao, Ivory Coast, Ecuador
-F: Netherlands, Japan, Tunisia, Sweden
-G: Belgium, Egypt, Iran, New Zealand
-H: Spain, Cape Verde, Uruguay, Saudi Arabia
-I: France, Senegal, Norway, Iraq
-J: Argentina, Algeria, Austria, Jordan
-K: Portugal, Colombia, Uzbekistan, Jamaica
-L: England, Croatia, Ghana, Panama
+      // 1. Send current cached state immediately
+      const cached = await getLiveMatches();
+      send("init", { live: cached, ts: Date.now() });
 
-Your style:
-- Be specific, analytical, and engaging
-- Use proper football terminology (pressing, high line, gegenpressing, tiki-taka etc.)
-- Include score predictions when asked (give a specific scoreline, not vague)
-- Bold key insights with **text** markdown
-- Keep responses under 350 words
-- Use line breaks for readability
-- Be confident but acknowledge uncertainty where appropriate`;
+      // 2. Fetch + push every 30s
+      let prevJson = JSON.stringify(cached);
 
-type MessageParam = { role: "user" | "assistant"; content: string };
+      async function refresh() {
+        try {
+          // Try real API first, fall back to cache
+          const apiMatches = await fetchLiveMatches();
+          const live: LiveMatch[] = apiMatches.map((m) => ({
+            id:        m.id,
+            group:     m.group,
+            home:      m.home,
+            away:      m.away,
+            homeScore: m.homeScore,
+            awayScore: m.awayScore,
+            minute:    m.minute,
+            status:    m.status as "live" | "ft" | "upcoming",
+            venue:     m.venue,
+            updatedAt: Date.now(),
+          }));
 
-export const runtime = "edge";
-export const maxDuration = 30;
+          // Persist to KV (if available)
+          if (live.length > 0) await setLiveMatches(live);
 
-export async function POST(req: NextRequest) {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
-  }
+          const currJson = JSON.stringify(live);
+          send("update", { live, changed: currJson !== prevJson, ts: Date.now() });
 
-  const { message, history = [] } = await req.json() as {
-    message: string;
-    history: { role: "user" | "ai"; content: string }[];
-  };
+          // Detect goals
+          if (currJson !== prevJson) {
+            const prev: LiveMatch[] = JSON.parse(prevJson);
+            live.forEach((m) => {
+              const p = prev.find((x) => x.id === m.id);
+              if (p && (p.homeScore !== m.homeScore || p.awayScore !== m.awayScore)) {
+                send("goal", { fixture: m, prev: { home: p.homeScore, away: p.awayScore } });
+              }
+            });
+          }
+          prevJson = currJson;
+        } catch {
+          // Keep alive with heartbeat on error
+          send("heartbeat", { ts: Date.now() });
+        }
+      }
 
-  if (!message?.trim()) {
-    return NextResponse.json({ error: "Message required" }, { status: 400 });
-  }
+      // First fetch immediately
+      await refresh();
 
-  // Convert chat history → Anthropic format
-  const messages: MessageParam[] = [
-    ...history
-      .filter((m) => m.role === "user" || m.role === "ai")
-      .map((m) => ({
-        role: m.role === "ai" ? "assistant" : "user" as "user" | "assistant",
-        content: m.content,
-      })),
-    { role: "user", content: message },
-  ];
+      // Then every 30s
+      const interval = setInterval(refresh, 30_000);
 
-  try {
-    const response = await client.messages.create({
-      model:      "claude-sonnet-4-20250514",
-      max_tokens: 600,
-      system:     SYSTEM,
-      messages,
-    });
+      // Close after 55s (Hobby function limit)
+      setTimeout(() => {
+        clearInterval(interval);
+        send("reconnect", { ts: Date.now() });
+        try { controller.close(); } catch {}
+      }, 55_000);
+    },
+  });
 
-    const reply = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { type: "text"; text: string }).text)
-      .join("\n");
-
-    return NextResponse.json({ reply });
-  } catch (err) {
-    console.error("[AI Route]", err);
-    return NextResponse.json({ error: "AI request failed" }, { status: 500 });
-  }
+  return new NextResponse(stream, {
+    headers: {
+      "Content-Type":      "text/event-stream",
+      "Cache-Control":     "no-cache, no-transform",
+      "Connection":        "keep-alive",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
